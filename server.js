@@ -153,7 +153,100 @@ app.post('/api/events', (req, res) => {
   }
 });
 
-// Start the server listening on 192.168.2.12:8080 (HTTP)
+// API endpoint: PUT /api/events/:id
+app.put('/api/events/:id', (req, res) => {
+  const ip = getClientIp(req);
+  const eventId = Number(req.params.id);
+  console.log(`[PUT /api/events/${eventId}] IP: ${ip} Body: ${JSON.stringify(req.body)}`);
+
+  if (isNaN(eventId)) {
+    return res.status(400).json({ error: 'Invalid event ID' });
+  }
+
+  const { date, title, details } = req.body;
+  if (!date || !title || typeof date !== 'string' || typeof title !== 'string') {
+    return res.status(400).json({ error: 'Missing or invalid date/title' });
+  }
+  const trimmedTitle = title.trim();
+  const trimmedDetails = typeof details === 'string' ? details.trim() : '';
+  const trimmedDate = date.trim();
+
+  // Get user_id from IP
+  const userStmt = db.prepare('SELECT id, name FROM users WHERE ip = ?');
+  const user = userStmt.get(ip);
+  if (!user) {
+    return res.status(403).json({ error: 'User not authenticated' });
+  }
+
+  // Check if event exists and belongs to this user
+  const eventStmt = db.prepare('SELECT * FROM events WHERE id = ?');
+  const event = eventStmt.get(eventId);
+  if (!event) {
+    return res.status(404).json({ error: 'Event not found' });
+  }
+  if (event.user_id !== user.id) {
+    return res.status(403).json({ error: 'Unauthorized to edit this event' });
+  }
+
+  try {
+    const updateStmt = db.prepare(`
+      UPDATE events SET date = ?, title = ?, details = ? WHERE id = ?
+    `);
+    updateStmt.run(trimmedDate, trimmedTitle, trimmedDetails, eventId);
+
+    // Return updated event with username
+    res.json({
+      id: eventId,
+      user_id: user.id,
+      date: trimmedDate,
+      title: trimmedTitle,
+      details: trimmedDetails,
+      username: user.name
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// API endpoint: DELETE /api/events/:id
+app.delete('/api/events/:id', (req, res) => {
+  const ip = getClientIp(req);
+  const eventId = Number(req.params.id);
+  console.log(`[DELETE /api/events/${eventId}] IP: ${ip}`);
+
+  if (isNaN(eventId)) {
+    return res.status(400).json({ error: 'Invalid event ID' });
+  }
+
+  // Get user_id from IP
+  const userStmt = db.prepare('SELECT id FROM users WHERE ip = ?');
+  const user = userStmt.get(ip);
+  if (!user) {
+    return res.status(403).json({ error: 'User not authenticated' });
+  }
+
+  // Check if event exists and belongs to this user
+  const eventStmt = db.prepare('SELECT * FROM events WHERE id = ?');
+  const event = eventStmt.get(eventId);
+  if (!event) {
+    return res.status(404).json({ error: 'Event not found' });
+  }
+  if (event.user_id !== user.id) {
+    return res.status(403).json({ error: 'Unauthorized to delete this event' });
+  }
+
+  try {
+    const deleteStmt = db.prepare('DELETE FROM events WHERE id = ?');
+    deleteStmt.run(eventId);
+    res.json({ message: 'Event deleted successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// Start the server listening on 192.168.2.12:8080
 app.listen(PORT, HOST, () => {
-  console.log(`Server running at http://${HOST}:${PORT}/`);
+  console.log(`Server running at http://${HOST}:${PORT}`);
 });

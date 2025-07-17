@@ -8,359 +8,469 @@
   body {
     font-family: Arial, sans-serif;
     background: #f9f9f9;
-    margin: 0; padding: 0;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    min-height: 100vh;
-    padding: 2rem 1rem;
+    margin: 0; padding: 20px;
+    color: #222;
   }
   #container {
+    max-width: 600px;
+    margin: auto;
     background: white;
-    border: 1px solid #ccc;
-    padding: 2rem;
-    max-width: 480px;
-    width: 100%;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    border: 1px solid #ddd;
+    padding: 20px;
     border-radius: 6px;
   }
-  h2 {
+  h1 {
     margin-top: 0;
-    margin-bottom: 1rem;
     font-weight: normal;
-    color: #333;
+    color: #444;
+    text-align: center;
+  }
+  form {
+    margin-bottom: 20px;
   }
   label {
     display: block;
-    margin-bottom: 0.25rem;
-    color: #555;
+    margin-top: 12px;
+    font-weight: bold;
   }
-  input[type="text"],
-  input[type="date"],
-  textarea {
+  input[type="text"], input[type="date"], textarea {
     width: 100%;
-    padding: 0.5rem;
-    font-size: 1rem;
-    margin-bottom: 1rem;
+    padding: 8px;
+    box-sizing: border-box;
+    margin-top: 4px;
     border: 1px solid #ccc;
     border-radius: 4px;
-    box-sizing: border-box;
-    font-family: inherit;
+    font-size: 14px;
   }
   textarea {
     resize: vertical;
-    min-height: 60px;
   }
   button {
-    width: 100%;
-    padding: 0.5rem;
-    font-size: 1rem;
-    background-color: #007bff;
+    margin-top: 12px;
+    background: #007bff;
     border: none;
-    border-radius: 4px;
+    padding: 10px 16px;
     color: white;
+    font-size: 14px;
+    border-radius: 4px;
     cursor: pointer;
   }
   button:hover {
-    background-color: #0056b3;
+    background: #0056b3;
   }
-  #placeholder {
-    color: #666;
-    text-align: center;
-    font-style: italic;
+  #login-form {
+    max-width: 300px;
+    margin: auto;
   }
-  #eventsList {
-    margin-top: 1rem;
+  #events-list {
+    margin-top: 20px;
   }
-  .event-date-group {
-    margin-bottom: 1.5rem;
+  .date-group {
+    margin-bottom: 24px;
   }
-  .event-date-group > h3 {
-    margin-bottom: 0.5rem;
+  .date-group h3 {
+    margin-bottom: 8px;
     border-bottom: 1px solid #ccc;
-    padding-bottom: 0.25rem;
-    color: #007bff;
+    padding-bottom: 4px;
+    color: #555;
   }
-  .event-item {
-    padding: 0.5rem;
-    border: 1px solid #ddd;
+  .event {
+    border: 1px solid #ccc;
+    background: #f4f6f8;
+    padding: 10px;
+    margin-bottom: 8px;
     border-radius: 4px;
-    margin-bottom: 0.5rem;
-    background: #fefefe;
+    position: relative;
   }
   .event-title {
     font-weight: bold;
-    margin-bottom: 0.25rem;
+    font-size: 16px;
   }
   .event-details {
-    margin-bottom: 0.25rem;
     white-space: pre-wrap;
+    margin-top: 6px;
   }
-  .event-creator {
-    font-size: 0.85rem;
+  .event-username {
+    font-size: 12px;
     color: #777;
-    font-style: italic;
+    margin-top: 4px;
   }
-  #errorMsg {
-    color: #b00020;
-    margin-bottom: 1rem;
-    min-height: 1.25rem;
+  .event-buttons {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+  }
+  .event-buttons button {
+    background: #6c757d;
+    padding: 6px 10px;
+    margin-left: 6px;
+    font-size: 12px;
+  }
+  .event-buttons button:hover {
+    background: #495057;
+  }
+  #event-form {
+    border-top: 1px solid #ddd;
+    padding-top: 12px;
+  }
+  /* Edit mode styles */
+  .edit-input, .edit-textarea {
+    font-size: 14px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 6px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    border: 1px solid #aaa;
+    padding: 6px 8px;
+  }
+  .edit-buttons {
+    text-align: right;
+  }
+  .edit-buttons button {
+    margin-left: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
   }
 </style>
 </head>
 <body>
-<div id="container">
-  <h2>Event Scheduler</h2>
+  <div id="container">
+    <h1>Local Network Event Scheduler</h1>
+    <div id="login-container" style="display:none;">
+      <form id="login-form">
+        <label for="username">Enter your username:</label>
+        <input type="text" id="username" name="username" autocomplete="off" required minlength="1" />
+        <button type="submit">Login</button>
+      </form>
+      <p id="login-error" style="color:red;display:none;margin-top:8px;"></p>
+    </div>
+    <div id="main-container" style="display:none;">
+      <div id="events-list">
+        <!-- Events will be grouped by date here -->
+      </div>
 
-  <div id="userFormContainer">
-    <label for="usernameInput">Enter your name:</label>
-    <input id="usernameInput" type="text" placeholder="Your name" autocomplete="off" />
-    <button id="saveNameBtn">Save Name</button>
-    <div id="userErrorMsg" style="color: red; min-height: 1.25rem; margin-top: 0.5rem;"></div>
+      <form id="event-form">
+        <h2>Add New Event</h2>
+        <label for="event-date">Date:</label>
+        <input type="date" id="event-date" name="event-date" required />
+        <label for="event-title">Title:</label>
+        <input type="text" id="event-title" name="event-title" required minlength="1" />
+        <label for="event-details">Details:</label>
+        <textarea id="event-details" name="event-details" rows="3"></textarea>
+        <button type="submit">Add Event</button>
+        <p id="event-error" style="color:red;display:none;margin-top:8px;"></p>
+      </form>
+    </div>
   </div>
-
-  <div id="eventFormContainer" style="display:none;">
-    <form id="eventForm">
-      <label for="dateInput">Date:</label>
-      <input id="dateInput" type="date" required />
-      <label for="titleInput">Title:</label>
-      <input id="titleInput" type="text" required />
-      <label for="detailsInput">Details (optional):</label>
-      <textarea id="detailsInput" rows="3"></textarea>
-      <button type="submit">Add Event</button>
-    </form>
-  </div>
-
-  <div id="errorMsg"></div>
-  <div id="eventsList"></div>
-</div>
 
 <script>
-  const userFormContainer = document.getElementById('userFormContainer');
-  const usernameInput = document.getElementById('usernameInput');
-  const saveNameBtn = document.getElementById('saveNameBtn');
-  const userErrorMsg = document.getElementById('userErrorMsg');
+(() => {
+  const loginContainer = document.getElementById('login-container');
+  const mainContainer = document.getElementById('main-container');
+  const loginForm = document.getElementById('login-form');
+  const usernameInput = document.getElementById('username');
+  const loginError = document.getElementById('login-error');
+  const eventForm = document.getElementById('event-form');
+  const eventDateInput = document.getElementById('event-date');
+  const eventTitleInput = document.getElementById('event-title');
+  const eventDetailsInput = document.getElementById('event-details');
+  const eventError = document.getElementById('event-error');
+  const eventsList = document.getElementById('events-list');
 
-  const eventFormContainer = document.getElementById('eventFormContainer');
-  const eventForm = document.getElementById('eventForm');
-  const dateInput = document.getElementById('dateInput');
-  const titleInput = document.getElementById('titleInput');
-  const detailsInput = document.getElementById('detailsInput');
+  let currentUser = null;
+  let editingEventId = null; // Track currently editing event
 
-  const errorMsg = document.getElementById('errorMsg');
-  const eventsList = document.getElementById('eventsList');
-
-  // Base URL for API calls - adjust if needed
-  const API_BASE = '/api';
-
-  // Helper to group events by date
-  function groupEventsByDate(events) {
-    const grouped = {};
-    events.forEach(event => {
-      if (!grouped[event.date]) grouped[event.date] = [];
-      grouped[event.date].push(event);
-    });
-    return grouped;
+  // Helper: fetch current user info
+  async function fetchUser() {
+    try {
+      const res = await fetch('/api/user');
+      if (!res.ok) throw new Error('Failed to fetch user');
+      const user = await res.json();
+      return user && user.id ? user : null;
+    } catch {
+      return null;
+    }
   }
 
-  // Show error messages
-  function showError(msg) {
-    errorMsg.textContent = msg || '';
+  // Helper: login user by posting name
+  async function loginUser(name) {
+    try {
+      const res = await fetch('/api/user', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name }),
+      });
+      if (res.status === 409) {
+        const data = await res.json();
+        throw new Error(data.error || 'Name already taken');
+      }
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Login failed');
+      }
+      const user = await res.json();
+      return user;
+    } catch (err) {
+      throw err;
+    }
   }
 
-  // Show user form error messages
-  function showUserError(msg) {
-    userErrorMsg.textContent = msg || '';
+  // Show login form or main UI depending on user state
+  async function initialize() {
+    currentUser = await fetchUser();
+    if (!currentUser) {
+      loginContainer.style.display = 'block';
+      mainContainer.style.display = 'none';
+    } else {
+      loginContainer.style.display = 'none';
+      mainContainer.style.display = 'block';
+      await loadEvents();
+    }
+  }
+
+  // Load and render events grouped by date
+  async function loadEvents() {
+    eventsList.innerHTML = 'Loading events...';
+    try {
+      const res = await fetch('/api/events');
+      if (!res.ok) throw new Error('Failed to fetch events');
+      const events = await res.json();
+      renderEvents(events);
+    } catch {
+      eventsList.innerHTML = '<p style="color:red;">Error loading events</p>';
+    }
   }
 
   // Render events grouped by date
   function renderEvents(events) {
+    if (!events.length) {
+      eventsList.innerHTML = '<p>No events yet.</p>';
+      return;
+    }
+    // Group by date
+    const groups = {};
+    for (const ev of events) {
+      if (!groups[ev.date]) groups[ev.date] = [];
+      groups[ev.date].push(ev);
+    }
+
+    // Clear list
     eventsList.innerHTML = '';
 
-    if (!events || events.length === 0) {
-      eventsList.innerHTML = '<div id="placeholder">No events scheduled yet.</div>';
-      return;
-    }
+    for (const date of Object.keys(groups).sort()) {
+      const groupDiv = document.createElement('div');
+      groupDiv.className = 'date-group';
 
-    const grouped = groupEventsByDate(events);
+      const dateHeader = document.createElement('h3');
+      dateHeader.textContent = date;
+      groupDiv.appendChild(dateHeader);
 
-    for (const date in grouped) {
-      const dateGroup = document.createElement('div');
-      dateGroup.className = 'event-date-group';
+      groups[date].forEach(ev => {
+        const evDiv = document.createElement('div');
+        evDiv.className = 'event';
+        evDiv.dataset.eventId = ev.id;
 
-      const dateHeading = document.createElement('h3');
-      dateHeading.textContent = date;
-      dateGroup.appendChild(dateHeading);
+        if (editingEventId === ev.id) {
+          // Render edit form inline
+          renderEditForm(evDiv, ev);
+        } else {
+          // Render event display
+          const titleDiv = document.createElement('div');
+          titleDiv.className = 'event-title';
+          titleDiv.textContent = ev.title;
+          evDiv.appendChild(titleDiv);
 
-      grouped[date].forEach(event => {
-        const eventDiv = document.createElement('div');
-        eventDiv.className = 'event-item';
+          if (ev.details) {
+            const detailsDiv = document.createElement('div');
+            detailsDiv.className = 'event-details';
+            detailsDiv.textContent = ev.details;
+            evDiv.appendChild(detailsDiv);
+          }
 
-        const titleEl = document.createElement('div');
-        titleEl.className = 'event-title';
-        titleEl.textContent = event.title;
-        eventDiv.appendChild(titleEl);
+          const usernameDiv = document.createElement('div');
+          usernameDiv.className = 'event-username';
+          usernameDiv.textContent = `By: ${ev.username}`;
+          evDiv.appendChild(usernameDiv);
 
-        if (event.details) {
-          const detailsEl = document.createElement('div');
-          detailsEl.className = 'event-details';
-          detailsEl.textContent = event.details;
-          eventDiv.appendChild(detailsEl);
+          // Show edit/delete only if event belongs to current user
+          if (currentUser && currentUser.name === ev.username) {
+            const buttonsDiv = document.createElement('div');
+            buttonsDiv.className = 'event-buttons';
+
+            const editBtn = document.createElement('button');
+            editBtn.type = 'button';
+            editBtn.textContent = 'Edit';
+            editBtn.addEventListener('click', () => startEditingEvent(ev.id));
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.style.background = '#dc3545';
+            deleteBtn.style.color = '#fff';
+            deleteBtn.addEventListener('click', () => deleteEvent(ev.id));
+
+            buttonsDiv.appendChild(editBtn);
+            buttonsDiv.appendChild(deleteBtn);
+            evDiv.appendChild(buttonsDiv);
+          }
         }
 
-        const creatorEl = document.createElement('div');
-        creatorEl.className = 'event-creator';
-        creatorEl.textContent = `Created by: ${event.username || 'Unknown'}`;
-        eventDiv.appendChild(creatorEl);
-
-        dateGroup.appendChild(eventDiv);
+        groupDiv.appendChild(evDiv);
       });
 
-      eventsList.appendChild(dateGroup);
+      eventsList.appendChild(groupDiv);
     }
   }
 
-  // Load user info from backend
-  async function loadUser() {
-    try {
-      const resp = await fetch(`${API_BASE}/user`);
-      if (!resp.ok) throw new Error(`Status ${resp.status}`);
-      const user = await resp.json();
-      if (user && user.name) {
-        userFormContainer.style.display = 'none';
-        eventFormContainer.style.display = 'block';
-        showUserError('');
-        return true;
-      } else {
-        userFormContainer.style.display = 'block';
-        eventFormContainer.style.display = 'none';
-        return false;
-      }
-    } catch (err) {
-      console.error('Error loading user:', err);
-      showUserError('Failed to load user info. Please try again.');
-      userFormContainer.style.display = 'block';
-      eventFormContainer.style.display = 'none';
-      return false;
-    }
+  // Render inline edit form inside event div
+  function renderEditForm(container, ev) {
+    container.innerHTML = '';
+
+    const dateInput = document.createElement('input');
+    dateInput.type = 'date';
+    dateInput.className = 'edit-input';
+    dateInput.value = ev.date;
+    dateInput.required = true;
+
+    const titleInput = document.createElement('input');
+    titleInput.type = 'text';
+    titleInput.className = 'edit-input';
+    titleInput.value = ev.title;
+    titleInput.required = true;
+
+    const detailsTextarea = document.createElement('textarea');
+    detailsTextarea.className = 'edit-textarea';
+    detailsTextarea.rows = 3;
+    detailsTextarea.value = ev.details || '';
+
+    container.appendChild(dateInput);
+    container.appendChild(titleInput);
+    container.appendChild(detailsTextarea);
+
+    const btnDiv = document.createElement('div');
+    btnDiv.className = 'edit-buttons';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.textContent = 'Save';
+    saveBtn.style.background = '#28a745';
+    saveBtn.style.color = '#fff';
+    saveBtn.addEventListener('click', () => submitEdit(ev.id, dateInput.value, titleInput.value, detailsTextarea.value));
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.background = '#6c757d';
+    cancelBtn.style.color = '#fff';
+    cancelBtn.addEventListener('click', () => {
+      editingEventId = null;
+      loadEvents();
+    });
+
+    btnDiv.appendChild(cancelBtn);
+    btnDiv.appendChild(saveBtn);
+    container.appendChild(btnDiv);
   }
 
-  // Save username to backend
-  async function saveUserName(name) {
-    showUserError('');
-    if (!name || !name.trim()) {
-      showUserError('Please enter a valid name.');
-      return false;
-    }
-    try {
-      const resp = await fetch(`${API_BASE}/user`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim() })
-      });
-      if (resp.status === 409) {
-        showUserError('Name already taken, try another.');
-        return false;
-      }
-      if (!resp.ok) {
-        const errorData = await resp.json();
-        showUserError(errorData.error || 'Failed to save name');
-        return false;
-      }
-      const user = await resp.json();
-      if (user && user.name) {
-        userFormContainer.style.display = 'none';
-        eventFormContainer.style.display = 'block';
-        showUserError('');
-        return true;
-      }
-    } catch (err) {
-      console.error('Error saving user name:', err);
-      showUserError('Network error. Please try again.');
-      return false;
-    }
+  // Start editing event
+  function startEditingEvent(eventId) {
+    editingEventId = eventId;
+    loadEvents();
   }
 
-  // Fetch and display events
-  async function loadEvents() {
-    showError('');
-    try {
-      const resp = await fetch(`${API_BASE}/events`);
-      if (!resp.ok) {
-        const text = await resp.text();
-        throw new Error(`Failed to load events: ${resp.status} - ${text}`);
-      }
-      const events = await resp.json();
-      renderEvents(events);
-    } catch (err) {
-      console.error(err);
-      showError('Error loading events. Please try again later.');
-      eventsList.innerHTML = '';
-    }
-  }
-
-  // Add a new event
-  async function addEvent(event) {
-    event.preventDefault();
-    showError('');
-
-    const date = dateInput.value;
-    const title = titleInput.value.trim();
-    const details = detailsInput.value.trim();
-
-    if (!date) {
-      showError('Please select a date.');
+  // Submit edited event to server
+  async function submitEdit(id, date, title, details) {
+    if (!date || !title.trim()) {
+      alert('Date and title are required.');
       return;
     }
-    if (!title) {
-      showError('Please enter a title.');
-      return;
-    }
-
     try {
-      const resp = await fetch(`${API_BASE}/events`, {
-        method: 'POST',
+      const res = await fetch(`/api/events/${id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date, title, details })
+        body: JSON.stringify({ date, title: title.trim(), details: details.trim() }),
       });
-      if (!resp.ok) {
-        const errorData = await resp.json();
-        throw new Error(errorData.error || 'Failed to add event');
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to update event');
       }
-      const newEvent = await resp.json();
-
-      // Append new event to current list
-      const currentEvents = [];
-      document.querySelectorAll('.event-item').forEach(() => {}); // No actual need to re-fetch all, but better to reload all
-
-      // Instead, reload all events fresh
+      editingEventId = null;
       await loadEvents();
-
-      eventForm.reset();
-      showError('');
     } catch (err) {
-      console.error(err);
-      showError('Network error while adding event. Please try again.');
+      alert('Error updating event: ' + err.message);
     }
   }
 
-  // Event listeners
-  saveNameBtn.addEventListener('click', async () => {
-    const success = await saveUserName(usernameInput.value);
-    if (success) {
+  // Delete event by ID
+  async function deleteEvent(id) {
+    if (!confirm('Are you sure you want to delete this event?')) return;
+    try {
+      const res = await fetch(`/api/events/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to delete event');
+      }
+      if (editingEventId === id) editingEventId = null;
       await loadEvents();
+    } catch (err) {
+      alert('Error deleting event: ' + err.message);
+    }
+  }
+
+  // Login form submit handler
+  loginForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    loginError.style.display = 'none';
+    const name = usernameInput.value.trim();
+    if (!name) return;
+    try {
+      currentUser = await loginUser(name);
+      loginContainer.style.display = 'none';
+      mainContainer.style.display = 'block';
+      await loadEvents();
+    } catch (err) {
+      loginError.textContent = err.message;
+      loginError.style.display = 'block';
     }
   });
 
-  eventForm.addEventListener('submit', addEvent);
-
-  // Initialize page
-  (async () => {
-    const userLoaded = await loadUser();
-    if (userLoaded) {
-      await loadEvents();
+  // Add event form submit handler
+  eventForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    eventError.style.display = 'none';
+    const date = eventDateInput.value;
+    const title = eventTitleInput.value.trim();
+    const details = eventDetailsInput.value.trim();
+    if (!date || !title) {
+      eventError.textContent = 'Date and title are required.';
+      eventError.style.display = 'block';
+      return;
     }
-  })();
+    try {
+      const res = await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, title, details }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to add event');
+      }
+      // Clear form
+      eventDateInput.value = '';
+      eventTitleInput.value = '';
+      eventDetailsInput.value = '';
+      await loadEvents();
+    } catch (err) {
+      eventError.textContent = err.message;
+      eventError.style.display = 'block';
+    }
+  });
+
+  // Initialize UI on page load
+  initialize();
+})();
 </script>
 </body>
 </html>
