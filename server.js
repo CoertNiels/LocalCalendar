@@ -294,6 +294,11 @@ function broadcastUpdate(type, data) {
   });
 }
 
+// 404 handler middleware - must be last route handler
+app.use((req, res) => {
+  res.status(404).sendFile(path.join(__dirname, '404.html'));
+});
+
 // Start the server listening on 192.168.2.12:8080
 server.listen(PORT, HOST, () => {
   console.log(`Server running at http://${HOST}:${PORT}`);
