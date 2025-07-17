@@ -7,7 +7,7 @@ const http = require('http');
 
 const app = express();
 const PORT = 8080;
-const HOST = '192.168.2.12';
+const HOST = '0.0.0.0';
 
 // Create HTTP server instance
 const server = http.createServer(app);
@@ -269,10 +269,18 @@ app.put('/api/events/:id', (req, res) => {
   const eventStmt = db.prepare('SELECT * FROM events WHERE id = ?');
   const event = eventStmt.get(eventId);
   if (!event) {
-    return serveErrorPage(res, 404); // Return 404.html with 404 status
+    return res.status(404).json({
+      error: 'Not Found',
+      message: 'Event does not exist',
+      code: 'EVENT_NOT_FOUND'
+    });
   }
   if (event.user_id !== user.id) {
-    return serveErrorPage(res, 403); // Return 404.html with 403 status
+    return res.status(403).json({
+      error: 'Forbidden',
+      message: 'You do not have permission to access this event',
+      code: 'EVENT_ACCESS_DENIED'
+    });
   }
 
   try {
@@ -318,10 +326,18 @@ app.delete('/api/events/:id', (req, res) => {
   const eventStmt = db.prepare('SELECT * FROM events WHERE id = ?');
   const event = eventStmt.get(eventId);
   if (!event) {
-    return serveErrorPage(res, 404); // Return 404.html with 404 status
+    return res.status(404).json({
+      error: 'Not Found',
+      message: 'Event does not exist',
+      code: 'EVENT_NOT_FOUND'
+    });
   }
   if (event.user_id !== user.id) {
-    return serveErrorPage(res, 403); // Return 404.html with 403 status
+    return res.status(403).json({
+      error: 'Forbidden',
+      message: 'You do not have permission to access this event',
+      code: 'EVENT_ACCESS_DENIED'
+    });
   }
 
   try {
@@ -367,13 +383,8 @@ function broadcastUpdate(type, data) {
 
 // Helper function to serve error page with custom status code
 function serveErrorPage(res, statusCode) {
-  let title = '404 - Page Not Found';
-  let message = 'The page you\'re looking for doesn\'t exist. You may have mistyped the address or the page may have moved.';
-  
-  if (statusCode === 403) {
-    title = '403 - Access Forbidden';
-    message = 'You don\'t have permission to access this resource. Please login or use appropriate credentials.';
-  }
+  const title = '404 - Page Not Found';
+  const message = 'The page you\'re looking for doesn\'t exist. You may have mistyped the address or the page may have moved.';
 
   const html = `
 <!DOCTYPE html>
