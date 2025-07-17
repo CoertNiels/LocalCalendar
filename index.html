@@ -226,6 +226,7 @@
       loginContainer.style.display = 'none';
       mainContainer.style.display = 'block';
       await loadEvents();
+      startPolling(); // Start polling if user is already logged in
     }
   }
 
@@ -429,6 +430,7 @@
       loginContainer.style.display = 'none';
       mainContainer.style.display = 'block';
       await loadEvents();
+      startPolling(); // Start polling after successful login
     } catch (err) {
       loginError.textContent = err.message;
       loginError.style.display = 'block';
@@ -468,8 +470,46 @@
     }
   });
 
+  // Start polling for events every 10 seconds
+  let pollInterval = null;
+
+  function startPolling() {
+    // Initial load
+    loadEvents();
+    // Set up polling every 10 seconds
+    pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/events');
+        if (!res.ok) throw new Error('Failed to fetch events');
+        const events = await res.json();
+        // Only update UI if we're not in the middle of editing
+        if (!editingEventId) {
+          renderEvents(events);
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 10000); // 10 seconds
+  }
+
+  function stopPolling() {
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
+    }
+  }
+
   // Initialize UI on page load
   initialize();
+
+  // Start/stop polling based on visibility
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      stopPolling();
+    } else if (currentUser) {
+      startPolling();
+    }
+  });
 })();
 </script>
 </body>

@@ -2,10 +2,21 @@ const express = require('express');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const Database = require('better-sqlite3');
+const WebSocket = require('ws');
+const http = require('http');
 
 const app = express();
 const PORT = 8080;
 const HOST = '192.168.2.12';
+
+// Create HTTP server instance
+const server = http.createServer(app);
+
+// Create WebSocket server
+const wss = new WebSocket.Server({ server });
+
+// Keep track of connected clients
+const clients = new Set();
 
 // Initialize SQLite DB connection with database.db
 const db = new Database('database.db', { verbose: console.log });
@@ -138,15 +149,20 @@ app.post('/api/events', (req, res) => {
     `);
     const info = insertStmt.run(user.id, trimmedDate, trimmedTitle, trimmedDetails);
 
-    // Return the created event with username
-    res.status(201).json({
+    const newEvent = {
       id: info.lastInsertRowid,
       user_id: user.id,
       date: trimmedDate,
       title: trimmedTitle,
       details: trimmedDetails,
       username: user.name
-    });
+    };
+
+    // Broadcast the new event to all connected clients
+    broadcastUpdate('event-created', newEvent);
+
+    // Return the created event with username
+    res.status(201).json(newEvent);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });
@@ -194,15 +210,20 @@ app.put('/api/events/:id', (req, res) => {
     `);
     updateStmt.run(trimmedDate, trimmedTitle, trimmedDetails, eventId);
 
-    // Return updated event with username
-    res.json({
+    const updatedEvent = {
       id: eventId,
       user_id: user.id,
       date: trimmedDate,
       title: trimmedTitle,
       details: trimmedDetails,
       username: user.name
-    });
+    };
+
+    // Broadcast the updated event to all connected clients
+    broadcastUpdate('event-updated', updatedEvent);
+
+    // Return updated event with username
+    res.json(updatedEvent);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });
@@ -239,6 +260,10 @@ app.delete('/api/events/:id', (req, res) => {
   try {
     const deleteStmt = db.prepare('DELETE FROM events WHERE id = ?');
     deleteStmt.run(eventId);
+
+    // Broadcast the deleted event to all connected clients
+    broadcastUpdate('event-deleted', { id: eventId });
+    
     res.json({ message: 'Event deleted successfully' });
   } catch (err) {
     console.error(err);
@@ -246,7 +271,30 @@ app.delete('/api/events/:id', (req, res) => {
   }
 });
 
+// WebSocket connection handler
+wss.on('connection', (ws, req) => {
+  // Add new client to our set
+  clients.add(ws);
+  console.log(`New WebSocket connection: ${getClientIp(req)}`);
+
+  // Handle client disconnection
+  ws.on('close', () => {
+    clients.delete(ws);
+    console.log(`Client disconnected: ${getClientIp(req)}`);
+  });
+});
+
+// Helper function to broadcast updates to all connected clients
+function broadcastUpdate(type, data) {
+  const message = JSON.stringify({ type, data });
+  clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  });
+}
+
 // Start the server listening on 192.168.2.12:8080
-app.listen(PORT, HOST, () => {
+server.listen(PORT, HOST, () => {
   console.log(`Server running at http://${HOST}:${PORT}`);
 });
