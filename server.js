@@ -63,6 +63,64 @@ try {
 app.use(cookieParser());
 app.use(express.json());
 
+// API authentication middleware
+const authenticateUser = (req, res, next) => {
+  try {
+    // Get user from IP
+    const ip = getClientIp(req);
+    const stmt = db.prepare('SELECT id, name FROM users WHERE ip = ?');
+    const user = stmt.get(ip);
+    
+    if (!user) {
+      return res.status(403).json({
+        error: 'Unauthorized',
+        message: 'Please login or register first',
+        code: 'AUTH_REQUIRED'
+      });
+    }
+    
+    // Attach user to request for use in route handlers
+    req.user = user;
+    next();
+  } catch (err) {
+    console.error('Authentication error:', err);
+    res.status(500).json({
+      error: 'Authentication failed',
+      message: 'Internal server error',
+      code: 'AUTH_ERROR'
+    });
+  }
+};
+
+// API routes middleware
+app.use('/api', (req, res, next) => {
+  // Check if request is coming from a browser
+  const acceptHeader = req.headers.accept || '';
+  const isDirectBrowserAccess = acceptHeader.includes('text/html');
+  
+  // If it's a direct browser request, redirect to home page
+  if (isDirectBrowserAccess) {
+    return res.redirect('/');
+  }
+
+  // Public routes that don't require authentication
+  const publicRoutes = [
+    { path: '/user', methods: ['GET', 'POST'] }
+  ];
+  
+  // Check if the current request matches any public route
+  const isPublicRoute = publicRoutes.some(route => 
+    req.path === route.path && route.methods.includes(req.method)
+  );
+  
+  if (isPublicRoute) {
+    return next();
+  }
+  
+  // Require authentication for all other API routes
+  authenticateUser(req, res, next);
+});
+
 // Serve the single index.html file with inline CSS/JS on /
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
@@ -146,7 +204,7 @@ app.get('/api/events', (req, res) => {
 // API endpoint: POST /api/events
 app.post('/api/events', (req, res) => {
   const ip = getClientIp(req);
-  console.log(`[POST /api/events] IP: ${ip} Body: ${JSON.stringify(req.body)}`);
+  console.log('[POST /api/events] IP:', ip, 'Body:', req.body);
 
   const { date, title, details } = req.body;
   if (!date || !title || typeof date !== 'string' || typeof title !== 'string') {
@@ -156,12 +214,8 @@ app.post('/api/events', (req, res) => {
   const trimmedDetails = typeof details === 'string' ? details.trim() : '';
   const trimmedDate = date.trim();
 
-  // Get user_id from IP
-  const userStmt = db.prepare('SELECT id, name FROM users WHERE ip = ?');
-  const user = userStmt.get(ip);
-  if (!user) {
-    return serveErrorPage(res, 403); // Return 404.html with 403 status
-  }
+  // User authentication is handled by middleware
+  const user = req.user;
 
   try {
     const insertStmt = db.prepare(`
@@ -194,7 +248,7 @@ app.post('/api/events', (req, res) => {
 app.put('/api/events/:id', (req, res) => {
   const ip = getClientIp(req);
   const eventId = parseInt(req.params.id, 10);
-  console.log(`[PUT /api/events/${eventId}] IP: ${ip} Body: ${JSON.stringify(req.body)}`);
+  console.log(`[PUT /api/events/${eventId}] IP:`, ip, 'Body:', req.body);
 
   if (isNaN(eventId) || eventId < 1) {
     return res.status(400).json({ error: 'Invalid event ID. Must be a positive integer.' });
@@ -208,12 +262,8 @@ app.put('/api/events/:id', (req, res) => {
   const trimmedDetails = typeof details === 'string' ? details.trim() : '';
   const trimmedDate = date.trim();
 
-  // Get user_id from IP
-  const userStmt = db.prepare('SELECT id, name FROM users WHERE ip = ?');
-  const user = userStmt.get(ip);
-  if (!user) {
-    return serveErrorPage(res, 403); // Return 404.html with 403 status
-  }
+  // User authentication is handled by middleware
+  const user = req.user;
 
   // Check if event exists and belongs to this user
   const eventStmt = db.prepare('SELECT * FROM events WHERE id = ?');
@@ -261,12 +311,8 @@ app.delete('/api/events/:id', (req, res) => {
     return res.status(400).json({ error: 'Invalid event ID. Must be a positive integer.' });
   }
 
-  // Get user_id from IP
-  const userStmt = db.prepare('SELECT id FROM users WHERE ip = ?');
-  const user = userStmt.get(ip);
-  if (!user) {
-    return serveErrorPage(res, 403); // Return 404.html with 403 status
-  }
+  // User authentication is handled by middleware
+  const user = req.user;
 
   // Check if event exists and belongs to this user
   const eventStmt = db.prepare('SELECT * FROM events WHERE id = ?');
@@ -307,12 +353,16 @@ wss.on('connection', (ws, req) => {
 
 // Helper function to broadcast updates to all connected clients
 function broadcastUpdate(type, data) {
-  const message = JSON.stringify({ type, data });
-  clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
-    }
-  });
+  try {
+    const message = JSON.stringify({ type, data });
+    clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
+  } catch (err) {
+    console.error('Error broadcasting update:', err);
+  }
 }
 
 // Helper function to serve error page with custom status code
@@ -390,11 +440,6 @@ function serveErrorPage(res, statusCode) {
 
   res.status(statusCode).send(html);
 }
-
-// Handle unauthorized api requests - must come after all other API routes
-app.use('/api', (req, res) => {
-  serveErrorPage(res, 403);
-});
 
 // 404 handler middleware - must be last route handler
 app.use((req, res) => {
