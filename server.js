@@ -19,24 +19,45 @@ const wss = new WebSocket.Server({ server });
 const clients = new Set();
 
 // Initialize SQLite DB connection with database.db
-const db = new Database('database.db', { verbose: console.log });
+let db;
+try {
+  db = new Database('database.db', { 
+    verbose: console.log,
+    fileMustExist: false // Create if not exists
+  });
 
-// Create tables if they don't exist
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ip TEXT UNIQUE,
-    name TEXT UNIQUE
-  );
-  CREATE TABLE IF NOT EXISTS events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    date TEXT,
-    title TEXT,
-    details TEXT,
-    FOREIGN KEY(user_id) REFERENCES users(id)
-  );
-`);
+  // Enable foreign keys
+  db.pragma('foreign_keys = ON');
+
+  // Create tables if they don't exist
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ip TEXT UNIQUE NOT NULL,
+        name TEXT UNIQUE NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        title TEXT NOT NULL,
+        details TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      -- Create indexes for better query performance
+      CREATE INDEX IF NOT EXISTS idx_events_date ON events(date);
+      CREATE INDEX IF NOT EXISTS idx_events_user_id ON events(user_id);
+    `);
+  })();
+} catch (err) {
+  console.error('Database initialization error:', err);
+  process.exit(1);
+}
 
 // Middleware
 app.use(cookieParser());
@@ -139,7 +160,7 @@ app.post('/api/events', (req, res) => {
   const userStmt = db.prepare('SELECT id, name FROM users WHERE ip = ?');
   const user = userStmt.get(ip);
   if (!user) {
-    return res.status(403).json({ error: 'User not authenticated' });
+    return serveErrorPage(res, 403); // Return 404.html with 403 status
   }
 
   try {
@@ -172,11 +193,11 @@ app.post('/api/events', (req, res) => {
 // API endpoint: PUT /api/events/:id
 app.put('/api/events/:id', (req, res) => {
   const ip = getClientIp(req);
-  const eventId = Number(req.params.id);
+  const eventId = parseInt(req.params.id, 10);
   console.log(`[PUT /api/events/${eventId}] IP: ${ip} Body: ${JSON.stringify(req.body)}`);
 
-  if (isNaN(eventId)) {
-    return res.status(400).json({ error: 'Invalid event ID' });
+  if (isNaN(eventId) || eventId < 1) {
+    return res.status(400).json({ error: 'Invalid event ID. Must be a positive integer.' });
   }
 
   const { date, title, details } = req.body;
@@ -191,17 +212,17 @@ app.put('/api/events/:id', (req, res) => {
   const userStmt = db.prepare('SELECT id, name FROM users WHERE ip = ?');
   const user = userStmt.get(ip);
   if (!user) {
-    return res.status(403).json({ error: 'User not authenticated' });
+    return serveErrorPage(res, 403); // Return 404.html with 403 status
   }
 
   // Check if event exists and belongs to this user
   const eventStmt = db.prepare('SELECT * FROM events WHERE id = ?');
   const event = eventStmt.get(eventId);
   if (!event) {
-    return res.status(404).json({ error: 'Event not found' });
+    return serveErrorPage(res, 404); // Return 404.html with 404 status
   }
   if (event.user_id !== user.id) {
-    return res.status(403).json({ error: 'Unauthorized to edit this event' });
+    return serveErrorPage(res, 403); // Return 404.html with 403 status
   }
 
   try {
@@ -233,28 +254,28 @@ app.put('/api/events/:id', (req, res) => {
 // API endpoint: DELETE /api/events/:id
 app.delete('/api/events/:id', (req, res) => {
   const ip = getClientIp(req);
-  const eventId = Number(req.params.id);
+  const eventId = parseInt(req.params.id, 10);
   console.log(`[DELETE /api/events/${eventId}] IP: ${ip}`);
 
-  if (isNaN(eventId)) {
-    return res.status(400).json({ error: 'Invalid event ID' });
+  if (isNaN(eventId) || eventId < 1) {
+    return res.status(400).json({ error: 'Invalid event ID. Must be a positive integer.' });
   }
 
   // Get user_id from IP
   const userStmt = db.prepare('SELECT id FROM users WHERE ip = ?');
   const user = userStmt.get(ip);
   if (!user) {
-    return res.status(403).json({ error: 'User not authenticated' });
+    return serveErrorPage(res, 403); // Return 404.html with 403 status
   }
 
   // Check if event exists and belongs to this user
   const eventStmt = db.prepare('SELECT * FROM events WHERE id = ?');
   const event = eventStmt.get(eventId);
   if (!event) {
-    return res.status(404).json({ error: 'Event not found' });
+    return serveErrorPage(res, 404); // Return 404.html with 404 status
   }
   if (event.user_id !== user.id) {
-    return res.status(403).json({ error: 'Unauthorized to delete this event' });
+    return serveErrorPage(res, 403); // Return 404.html with 403 status
   }
 
   try {
@@ -294,9 +315,90 @@ function broadcastUpdate(type, data) {
   });
 }
 
+// Helper function to serve error page with custom status code
+function serveErrorPage(res, statusCode) {
+  let title = '404 - Page Not Found';
+  let message = 'The page you\'re looking for doesn\'t exist. You may have mistyped the address or the page may have moved.';
+  
+  if (statusCode === 403) {
+    title = '403 - Access Forbidden';
+    message = 'You don\'t have permission to access this resource. Please login or use appropriate credentials.';
+  }
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${title}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f9f9f9;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 {
+            color: #444;
+            margin: 0 0 20px;
+            font-size: 32px;
+        }
+        p {
+            color: #666;
+            margin: 0 0 25px;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        a {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+        a:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>${title}</h1>
+        <p>${message}</p>
+        <a href="/">Go Back to Homepage</a>
+    </div>
+</body>
+</html>`;
+
+  res.status(statusCode).send(html);
+}
+
+// Handle unauthorized api requests - must come after all other API routes
+app.use('/api', (req, res) => {
+  serveErrorPage(res, 403);
+});
+
 // 404 handler middleware - must be last route handler
 app.use((req, res) => {
-  res.status(404).sendFile(path.join(__dirname, '404.html'));
+  serveErrorPage(res, 404);
 });
 
 // Start the server listening on 192.168.2.12:8080
