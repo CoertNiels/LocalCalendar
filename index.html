@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Local Network Event Scheduler</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f9f9f9;
+    margin: 0; padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+  #container {
+    background: white;
+    border: 1px solid #ccc;
+    padding: 2rem;
+    max-width: 480px;
+    width: 100%;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    border-radius: 6px;
+  }
+  h2 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-weight: normal;
+    color: #333;
+  }
+  label {
+    display: block;
+    margin-bottom: 0.25rem;
+    color: #555;
+  }
+  input[type="text"],
+  input[type="date"],
+  textarea {
+    width: 100%;
+    padding: 0.5rem;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-family: inherit;
+  }
+  textarea {
+    resize: vertical;
+    min-height: 60px;
+  }
+  button {
+    width: 100%;
+    padding: 0.5rem;
+    font-size: 1rem;
+    background-color: #007bff;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+  }
+  button:hover {
+    background-color: #0056b3;
+  }
+  #placeholder {
+    color: #666;
+    text-align: center;
+    font-style: italic;
+  }
+  #eventsList {
+    margin-top: 1rem;
+  }
+  .event-date-group {
+    margin-bottom: 1.5rem;
+  }
+  .event-date-group > h3 {
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 0.25rem;
+    color: #007bff;
+  }
+  .event-item {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    background: #fefefe;
+  }
+  .event-title {
+    font-weight: bold;
+    margin-bottom: 0.25rem;
+  }
+  .event-details {
+    margin-bottom: 0.25rem;
+    white-space: pre-wrap;
+  }
+  .event-creator {
+    font-size: 0.85rem;
+    color: #777;
+    font-style: italic;
+  }
+  #errorMsg {
+    color: #b00020;
+    margin-bottom: 1rem;
+    min-height: 1.25rem;
+  }
+</style>
+</head>
+<body>
+<div id="container">
+  <h2>Event Scheduler</h2>
+
+  <div id="userFormContainer">
+    <label for="usernameInput">Enter your name:</label>
+    <input id="usernameInput" type="text" placeholder="Your name" autocomplete="off" />
+    <button id="saveNameBtn">Save Name</button>
+    <div id="userErrorMsg" style="color: red; min-height: 1.25rem; margin-top: 0.5rem;"></div>
+  </div>
+
+  <div id="eventFormContainer" style="display:none;">
+    <form id="eventForm">
+      <label for="dateInput">Date:</label>
+      <input id="dateInput" type="date" required />
+      <label for="titleInput">Title:</label>
+      <input id="titleInput" type="text" required />
+      <label for="detailsInput">Details (optional):</label>
+      <textarea id="detailsInput" rows="3"></textarea>
+      <button type="submit">Add Event</button>
+    </form>
+  </div>
+
+  <div id="errorMsg"></div>
+  <div id="eventsList"></div>
+</div>
+
+<script>
+  const userFormContainer = document.getElementById('userFormContainer');
+  const usernameInput = document.getElementById('usernameInput');
+  const saveNameBtn = document.getElementById('saveNameBtn');
+  const userErrorMsg = document.getElementById('userErrorMsg');
+
+  const eventFormContainer = document.getElementById('eventFormContainer');
+  const eventForm = document.getElementById('eventForm');
+  const dateInput = document.getElementById('dateInput');
+  const titleInput = document.getElementById('titleInput');
+  const detailsInput = document.getElementById('detailsInput');
+
+  const errorMsg = document.getElementById('errorMsg');
+  const eventsList = document.getElementById('eventsList');
+
+  // Base URL for API calls - adjust if needed
+  const API_BASE = '/api';
+
+  // Helper to group events by date
+  function groupEventsByDate(events) {
+    const grouped = {};
+    events.forEach(event => {
+      if (!grouped[event.date]) grouped[event.date] = [];
+      grouped[event.date].push(event);
+    });
+    return grouped;
+  }
+
+  // Show error messages
+  function showError(msg) {
+    errorMsg.textContent = msg || '';
+  }
+
+  // Show user form error messages
+  function showUserError(msg) {
+    userErrorMsg.textContent = msg || '';
+  }
+
+  // Render events grouped by date
+  function renderEvents(events) {
+    eventsList.innerHTML = '';
+
+    if (!events || events.length === 0) {
+      eventsList.innerHTML = '<div id="placeholder">No events scheduled yet.</div>';
+      return;
+    }
+
+    const grouped = groupEventsByDate(events);
+
+    for (const date in grouped) {
+      const dateGroup = document.createElement('div');
+      dateGroup.className = 'event-date-group';
+
+      const dateHeading = document.createElement('h3');
+      dateHeading.textContent = date;
+      dateGroup.appendChild(dateHeading);
+
+      grouped[date].forEach(event => {
+        const eventDiv = document.createElement('div');
+        eventDiv.className = 'event-item';
+
+        const titleEl = document.createElement('div');
+        titleEl.className = 'event-title';
+        titleEl.textContent = event.title;
+        eventDiv.appendChild(titleEl);
+
+        if (event.details) {
+          const detailsEl = document.createElement('div');
+          detailsEl.className = 'event-details';
+          detailsEl.textContent = event.details;
+          eventDiv.appendChild(detailsEl);
+        }
+
+        const creatorEl = document.createElement('div');
+        creatorEl.className = 'event-creator';
+        creatorEl.textContent = `Created by: ${event.username || 'Unknown'}`;
+        eventDiv.appendChild(creatorEl);
+
+        dateGroup.appendChild(eventDiv);
+      });
+
+      eventsList.appendChild(dateGroup);
+    }
+  }
+
+  // Load user info from backend
+  async function loadUser() {
+    try {
+      const resp = await fetch(`${API_BASE}/user`);
+      if (!resp.ok) throw new Error(`Status ${resp.status}`);
+      const user = await resp.json();
+      if (user && user.name) {
+        userFormContainer.style.display = 'none';
+        eventFormContainer.style.display = 'block';
+        showUserError('');
+        return true;
+      } else {
+        userFormContainer.style.display = 'block';
+        eventFormContainer.style.display = 'none';
+        return false;
+      }
+    } catch (err) {
+      console.error('Error loading user:', err);
+      showUserError('Failed to load user info. Please try again.');
+      userFormContainer.style.display = 'block';
+      eventFormContainer.style.display = 'none';
+      return false;
+    }
+  }
+
+  // Save username to backend
+  async function saveUserName(name) {
+    showUserError('');
+    if (!name || !name.trim()) {
+      showUserError('Please enter a valid name.');
+      return false;
+    }
+    try {
+      const resp = await fetch(`${API_BASE}/user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() })
+      });
+      if (resp.status === 409) {
+        showUserError('Name already taken, try another.');
+        return false;
+      }
+      if (!resp.ok) {
+        const errorData = await resp.json();
+        showUserError(errorData.error || 'Failed to save name');
+        return false;
+      }
+      const user = await resp.json();
+      if (user && user.name) {
+        userFormContainer.style.display = 'none';
+        eventFormContainer.style.display = 'block';
+        showUserError('');
+        return true;
+      }
+    } catch (err) {
+      console.error('Error saving user name:', err);
+      showUserError('Network error. Please try again.');
+      return false;
+    }
+  }
+
+  // Fetch and display events
+  async function loadEvents() {
+    showError('');
+    try {
+      const resp = await fetch(`${API_BASE}/events`);
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`Failed to load events: ${resp.status} - ${text}`);
+      }
+      const events = await resp.json();
+      renderEvents(events);
+    } catch (err) {
+      console.error(err);
+      showError('Error loading events. Please try again later.');
+      eventsList.innerHTML = '';
+    }
+  }
+
+  // Add a new event
+  async function addEvent(event) {
+    event.preventDefault();
+    showError('');
+
+    const date = dateInput.value;
+    const title = titleInput.value.trim();
+    const details = detailsInput.value.trim();
+
+    if (!date) {
+      showError('Please select a date.');
+      return;
+    }
+    if (!title) {
+      showError('Please enter a title.');
+      return;
+    }
+
+    try {
+      const resp = await fetch(`${API_BASE}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, title, details })
+      });
+      if (!resp.ok) {
+        const errorData = await resp.json();
+        throw new Error(errorData.error || 'Failed to add event');
+      }
+      const newEvent = await resp.json();
+
+      // Append new event to current list
+      const currentEvents = [];
+      document.querySelectorAll('.event-item').forEach(() => {}); // No actual need to re-fetch all, but better to reload all
+
+      // Instead, reload all events fresh
+      await loadEvents();
+
+      eventForm.reset();
+      showError('');
+    } catch (err) {
+      console.error(err);
+      showError('Network error while adding event. Please try again.');
+    }
+  }
+
+  // Event listeners
+  saveNameBtn.addEventListener('click', async () => {
+    const success = await saveUserName(usernameInput.value);
+    if (success) {
+      await loadEvents();
+    }
+  });
+
+  eventForm.addEventListener('submit', addEvent);
+
+  // Initialize page
+  (async () => {
+    const userLoaded = await loadUser();
+    if (userLoaded) {
+      await loadEvents();
+    }
+  })();
+</script>
+</body>
+</html>
